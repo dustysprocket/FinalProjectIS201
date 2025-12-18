@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pacman Game</title>
+  <style>
+    body {
+      background: black;
+      color: white;
+      text-align: center;
+      font-family: Arial, sans-serif;
+    }
+    canvas {
+      background: #000;
+      display: block;
+      margin: 20px auto;
+      border: 2px solid #fff;
+    }
+    button {
+      margin: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Pacman Game</h1>
+  <canvas id="gameCanvas" width="420" height="420"></canvas>
+  <div>
+    <button onclick="newGame()">New Game</button>
+    <button onclick="restartGame()">Restart</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const tileSize = 20;
+    const rows = 21;
+    const cols = 21;
+
+    // Map: 0 = dot, 1 = wall, 2 = empty
+    let map = [];
+    function generateMap() {
+      map = [];
+      for (let r = 0; r < rows; r++) {
+        let row = [];
+        for (let c = 0; c < cols; c++) {
+          if (r === 0 || c === 0 || r === rows-1 || c === cols-1) {
+            row.push(1); // walls
+          } else {
+            row.push(0); // dots
+          }
+        }
+        map.push(row);
+      }
+      // Add some inner walls
+      for (let r = 2; r < rows-2; r+=4) {
+        for (let c = 2; c < cols-2; c+=4) {
+          map[r][c] = 1;
+        }
+      }
+    }
+
+    let pacman = {x: 1, y: 1, dx: 0, dy: 0, speed: 10, counter: 0};
+    let ghosts = [];
+    let gameOver = false;
+
+    function initGhosts() {
+      ghosts = [
+        {x: cols-2, y: rows-2, color: "green", dx: 0, dy: -1, speed: 8, counter: 0},
+        {x: cols-2, y: 1, color: "blue", dx: -1, dy: 0, speed: 8, counter: 0},
+        {x: 1, y: rows-2, color: "pink", dx: 1, dy: 0, speed: 8, counter: 0}
+      ];
+    }
+
+    function drawMap() {
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (map[r][c] === 1) {
+            ctx.fillStyle = "navy";
+            ctx.fillRect(c*tileSize, r*tileSize, tileSize, tileSize);
+          } else if (map[r][c] === 0) {
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.arc(c*tileSize+tileSize/2, r*tileSize+tileSize/2, 3, 0, Math.PI*2);
+            ctx.fill();
+          }
+        }
+      }
+    }
+
+    function drawPacman() {
+      ctx.fillStyle = "yellow";
+      ctx.beginPath();
+      ctx.arc(pacman.x*tileSize+tileSize/2, pacman.y*tileSize+tileSize/2, tileSize/2-2, 0.25*Math.PI, 1.75*Math.PI);
+      ctx.lineTo(pacman.x*tileSize+tileSize/2, pacman.y*tileSize+tileSize/2);
+      ctx.fill();
+    }
+
+    function drawGhosts() {
+      ghosts.forEach(g => {
+        ctx.fillStyle = g.color;
+        ctx.beginPath();
+        ctx.arc(g.x*tileSize+tileSize/2, g.y*tileSize+tileSize/2, tileSize/2-2, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+
+    function updatePacman() {
+      pacman.counter++;
+      if (pacman.counter >= pacman.speed) {
+        pacman.counter = 0;
+        let nx = pacman.x + pacman.dx;
+        let ny = pacman.y + pacman.dy;
+        if (map[ny][nx] !== 1) {
+          pacman.x = nx;
+          pacman.y = ny;
+          if (map[ny][nx] === 0) {
+            map[ny][nx] = 2; // eat dot
+          }
+        }
+      }
+    }
+
+    function updateGhosts() {
+      ghosts.forEach(g => {
+        g.counter++;
+        if (g.counter >= g.speed) {
+          g.counter = 0;
+          if (Math.random() < 0.1) {
+            let dirs = [{dx:1,dy:0},{dx:-1,dy:0},{dx:0,dy:1},{dx:0,dy:-1}];
+            let choice = dirs[Math.floor(Math.random()*dirs.length)];
+            g.dx = choice.dx;
+            g.dy = choice.dy;
+          }
+          let nx = g.x + g.dx;
+          let ny = g.y + g.dy;
+          if (map[ny][nx] !== 1) {
+            g.x = nx;
+            g.y = ny;
+          }
+        }
+      });
+    }
+
+    function checkCollision() {
+      ghosts.forEach(g => {
+        if (g.x === pacman.x && g.y === pacman.y) {
+          gameOver = true;
+        }
+      });
+    }
+
+    function gameLoop() {
+      if (gameOver) {
+        ctx.fillStyle = "red";
+        ctx.font = "30px Arial";
+        ctx.fillText("Game Over!", canvas.width/2-80, canvas.height/2);
+        return;
+      }
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      drawMap();
+      updatePacman();
+      updateGhosts();
+      checkCollision();
+      drawPacman();
+      drawGhosts();
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "ArrowUp") {pacman.dx=0; pacman.dy=-1;}
+      if (e.key === "ArrowDown") {pacman.dx=0; pacman.dy=1;}
+      if (e.key === "ArrowLeft") {pacman.dx=-1; pacman.dy=0;}
+      if (e.key === "ArrowRight") {pacman.dx=1; pacman.dy=0;}
+    });
+
+    function newGame() {
+      generateMap();
+      pacman = {x: 1, y: 1, dx: 0, dy: 0, speed: 10, counter: 0};
+      initGhosts();
+      gameOver = false;
+      gameLoop();
+    }
+
+    function restartGame() {
+      pacman = {x: 1, y: 1, dx: 0, dy: 0, speed: 10, counter: 0};
+      initGhosts();
+      gameOver = false;
+      gameLoop();
+    }
+
+    newGame();
+  </script>
+
+
+
+<a href="Resume.html">Back to resume</a>
+</body>
+</html>
